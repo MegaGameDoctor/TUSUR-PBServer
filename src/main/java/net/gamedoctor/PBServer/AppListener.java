@@ -70,6 +70,7 @@ public class AppListener {
                 m.setData(name + ": " + message);
                 System.out.println("Сообщение в чате: " + m.getData());
                 server.sendToAll("fromCore", m.toMap());
+                db.logChatMessage(name, message);
             } else if (action.equals("getStats")) {
                 m.setAction("statsAnswer");
                 m.setData("Закрашено пикселей: " + db.getPlayerPainted(data));

@@ -8,12 +8,14 @@ public class MySQLDBManager {
     private String playersTableName;
     private String pixelLogsTableName;
     private String canvasStateTableName;
+    private String chatLogsTableName;
 
     public void connect(PBServer main) {
         this.main = main;
         playersTableName = "app_players";
         pixelLogsTableName = "app_pixel_logs";
         canvasStateTableName = "app_canvas_state";
+        chatLogsTableName = "app_chat_logs";
 
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
@@ -38,6 +40,13 @@ public class MySQLDBManager {
                     "  `y` INT NULL,\n" +
                     "  `color` INT NULL,\n" +
                     "  `changeDate` BIGINT NULL);").execute();
+
+            connection.prepareStatement("CREATE TABLE IF NOT EXISTS " + chatLogsTableName + " (\n" +
+                    "  `id` INT NOT NULL AUTO_INCREMENT,\n" +
+                    "  `player` VARCHAR(255) NULL,\n" +
+                    "  `message` TEXT NULL,\n" +
+                    "  `date` BIGINT NULL,\n" +
+                    "  PRIMARY KEY (`id`));").execute();
 
             PreparedStatement preparedStatement = connection.prepareStatement("SELECT COUNT(*) FROM " + canvasStateTableName);
 
@@ -137,6 +146,19 @@ public class MySQLDBManager {
             preparedStatement.setInt(4, newColor);
             preparedStatement.setInt(5, previousColor);
             preparedStatement.setString(6, player);
+            preparedStatement.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void logChatMessage(String player, String message) {
+        try {
+            PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO " + chatLogsTableName + " " +
+                    "(`player`, `message`, `date`) VALUES (?, ?, ?)");
+            preparedStatement.setString(1, player);
+            preparedStatement.setString(2, message);
+            preparedStatement.setLong(3, System.currentTimeMillis());
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
