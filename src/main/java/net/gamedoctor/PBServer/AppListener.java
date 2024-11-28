@@ -15,6 +15,7 @@ public class AppListener {
     private final HashMap<String, Long> nextPaintDates = new HashMap<>();
 
     public AppListener(PBServer main, int port) {
+        main.getDb().fillAllActiveDelays(nextPaintDates);
         server = new NettyGatewayServer(port, new HashMap<>());
         server.addReceiveCallback(this::onMessage);
         this.main = main;
@@ -41,14 +42,13 @@ public class AppListener {
                 m.setAction("paintPixelAnswer");
 
                 if (nextPaintDates.getOrDefault(name, 0L) > System.currentTimeMillis()) {
-                    long next = nextPaintDates.get(name) - System.currentTimeMillis();
-                    m.setData("Вы сможете закрасить пиксель через " + secondsToFormatedString(Math.round(next / 1000F)));
+                    m.setData(String.valueOf((nextPaintDates.get(name) - System.currentTimeMillis()) / 1000L));
                 } else {
                     int seconds = 15;
                     long timeToNext = System.currentTimeMillis() + 1000L * seconds; // 15 секунд
                     m.setData("SUCCESS:" + x + ":" + y + ":" + color + ":" + seconds);
                     nextPaintDates.put(name, timeToNext);
-                    db.updateOrCreateUserData(name, 1); // 1 закрашивание
+                    db.updateOrCreateUserData(name, 1, timeToNext); // 1 закрашивание
                     db.logPixelPaint(x, y, color, name, System.currentTimeMillis());
                     db.updateCanvasState(x, y, color, System.currentTimeMillis());
                     System.out.println("Закрашен пиксель (" + x + ";" + y + "): " + color);
@@ -78,7 +78,7 @@ public class AppListener {
             } else if (action.equals("tryAuth")) {
                 m.setAction("authAnswer");
                 m.setData("SUCCESS:" + data);
-                db.updateOrCreateUserData(data, 0);
+                db.updateOrCreateUserData(data, 0, 0L);
                 server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
             }
         } catch (Exception e) {

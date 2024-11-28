@@ -1,6 +1,7 @@
 package net.gamedoctor.PBServer;
 
 import java.sql.*;
+import java.util.HashMap;
 
 public class MySQLDBManager {
     private PBServer main;
@@ -23,7 +24,7 @@ public class MySQLDBManager {
             connection.prepareStatement("CREATE TABLE IF NOT EXISTS " + playersTableName + " (\n" +
                     "  `player` VARCHAR(255) NOT NULL,\n" +
                     "  `painted` INT NULL,\n" +
-                    //"  `nextPixel` BIGINT NULL,\n" +
+                    "  `nextPixel` BIGINT NULL,\n" +
                     "  PRIMARY KEY (`player`),\n" +
                     "  UNIQUE INDEX `player_UNIQUE` (`player` ASC));").execute();
 
@@ -88,6 +89,19 @@ public class MySQLDBManager {
                 }
             }
         }.start();
+    }
+
+    public void fillAllActiveDelays(HashMap<String, Long> delays) {
+        try {
+            PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM " + playersTableName + " WHERE nextPixel > ?");
+            preparedStatement.setLong(1, System.currentTimeMillis());
+            ResultSet set = preparedStatement.executeQuery();
+            while (set.next()) {
+                delays.put(set.getString("player"), set.getLong("nextPixel"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     private void insertCanvasState(int x, int y) {
@@ -165,20 +179,22 @@ public class MySQLDBManager {
         }
     }
 
-    public void updateOrCreateUserData(String name, int toAddPainted) {
+    public void updateOrCreateUserData(String name, int toAddPainted, long nextPixelTime) {
         try {
             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM " + playersTableName + " WHERE player = ?");
             preparedStatement.setString(1, name);
             ResultSet set = preparedStatement.executeQuery();
             if (set.next()) {
-                PreparedStatement update = connection.prepareStatement("UPDATE " + playersTableName + " SET painted = ? WHERE player = ?");
+                PreparedStatement update = connection.prepareStatement("UPDATE " + playersTableName + " SET painted = ?, nextPixel = ? WHERE player = ?");
                 update.setInt(1, set.getInt("painted") + toAddPainted);
-                update.setString(2, name);
+                update.setLong(2, nextPixelTime);
+                update.setString(3, name);
                 update.executeUpdate();
             } else {
-                PreparedStatement update = connection.prepareStatement("INSERT INTO " + playersTableName + " (`player`, `painted`) VALUES (?, ?)");
+                PreparedStatement update = connection.prepareStatement("INSERT INTO " + playersTableName + " (`player`, `painted`, `nextPixel`) VALUES (?, ?, ?)");
                 update.setString(1, name);
                 update.setInt(2, toAddPainted);
+                update.setLong(3, nextPixelTime);
                 update.executeUpdate();
                 System.out.println("Создан новый игрок: " + name);
             }
