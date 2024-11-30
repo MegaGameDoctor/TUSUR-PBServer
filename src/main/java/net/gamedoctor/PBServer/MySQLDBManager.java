@@ -2,6 +2,7 @@ package net.gamedoctor.PBServer;
 
 import java.sql.*;
 import java.util.HashMap;
+import java.util.Map;
 
 public class MySQLDBManager {
     private PBServer main;
@@ -10,6 +11,7 @@ public class MySQLDBManager {
     private String pixelLogsTableName;
     private String canvasStateTableName;
     private String chatLogsTableName;
+    private String coreRequestsTableName;
 
     public void connect(PBServer main) {
         this.main = main;
@@ -17,6 +19,7 @@ public class MySQLDBManager {
         pixelLogsTableName = "app_pixel_logs";
         canvasStateTableName = "app_canvas_state";
         chatLogsTableName = "app_chat_logs";
+        coreRequestsTableName = "core_requests";
 
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
@@ -49,6 +52,13 @@ public class MySQLDBManager {
                     "  `date` BIGINT NULL,\n" +
                     "  PRIMARY KEY (`id`));").execute();
 
+            connection.prepareStatement("CREATE TABLE IF NOT EXISTS " + coreRequestsTableName + " (\n" +
+                    "  `id` INT NOT NULL AUTO_INCREMENT,\n" +
+                    "  `action` VARCHAR(255) NULL,\n" +
+                    "  `data` LONGTEXT NULL,\n" +
+                    "  `status` VARCHAR(25) NULL,\n" +
+                    "  PRIMARY KEY (`id`));").execute();
+
             PreparedStatement preparedStatement = connection.prepareStatement("SELECT COUNT(*) FROM " + canvasStateTableName);
 
             ResultSet set = preparedStatement.executeQuery();
@@ -70,6 +80,41 @@ public class MySQLDBManager {
         }
 
         keepAlive();
+        coreRequestsChecker();
+    }
+
+    private void coreRequestsChecker() {
+        new Thread() {
+            public void run() {
+                while (true) {
+                    try {
+                        PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM " + coreRequestsTableName + " WHERE status = ? ORDER BY id");
+                        preparedStatement.setString(1, "WAITING");
+                        ResultSet set = preparedStatement.executeQuery();
+                        while (set.next()) {
+                            Map<String, String> packet = new HashMap<>();
+                            packet.put("action", set.getString("action"));
+                            packet.put("data", set.getString("data"));
+                            main.getAppListener().workWithPacket(packet, null);
+
+                            preparedStatement = connection.prepareStatement("UPDATE " + coreRequestsTableName + " SET status = ? WHERE id = ?");
+                            preparedStatement.setString(1, "COMPLETED");
+                            preparedStatement.setInt(2, set.getInt("id"));
+                            preparedStatement.executeUpdate();
+                            System.out.println("Выполнен внешний запрос с ID: " + set.getInt("id"));
+                        }
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+
+                    try {
+                        Thread.sleep(1000L * 5); // 5 сек
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        }.start();
     }
 
     private void keepAlive() {
@@ -177,6 +222,18 @@ public class MySQLDBManager {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+
+    public boolean isUserExists(String player) {
+        try {
+            PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM " + playersTableName + " WHERE player = ?");
+            preparedStatement.setString(1, player);
+            ResultSet set = preparedStatement.executeQuery();
+            return set.next();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 
     public void updateOrCreateUserData(String name, int toAddPainted, long nextPixelTime) {

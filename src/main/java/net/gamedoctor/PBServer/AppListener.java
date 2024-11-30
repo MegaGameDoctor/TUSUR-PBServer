@@ -5,6 +5,7 @@ import com.mayakplay.aclf.cloud.stereotype.GatewayClientInfo;
 import com.mayakplay.aclf.cloud.stereotype.GatewayServer;
 import com.mayakplay.aclf.cloud.stereotype.Nugget;
 
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -23,16 +24,20 @@ public class AppListener {
 
     private void onMessage(GatewayClientInfo gatewayClientInfo, Nugget nugget) {
         //System.out.println("Server sent: " + nugget);
+        workWithPacket(nugget.getParameters(), gatewayClientInfo);
+    }
+
+    public void workWithPacket(Map<String, String> map, @Nullable GatewayClientInfo gatewayClientInfo) {
         MySQLDBManager db = main.getDb();
         try {
-            Map<String, String> map = nugget.getParameters();
             String action = map.get("action");
             String data = map.get("data");
             CoreMessage m = new CoreMessage(action, data);
             if (action.equals("loadAllPixels")) {
                 m.setAction("loadAllPixelsAnswer");
                 m.setData(db.getFormattedCanvasData());
-                server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
+                if (gatewayClientInfo != null)
+                    server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
             } else if (action.equals("paintPixel")) {
                 String[] dd = data.split("@!@");
                 String name = dd[0];
@@ -41,22 +46,25 @@ public class AppListener {
                 int color = Integer.parseInt(dd[3]);
                 m.setAction("paintPixelAnswer");
 
-                if (nextPaintDates.getOrDefault(name, 0L) > System.currentTimeMillis()) {
-                    m.setData(String.valueOf((nextPaintDates.get(name) - System.currentTimeMillis()) / 1000L));
+                if (db.isUserExists(name)) {
+                    if (nextPaintDates.getOrDefault(name, 0L) > System.currentTimeMillis()) {
+                        m.setData(String.valueOf((nextPaintDates.get(name) - System.currentTimeMillis()) / 1000L));
+                    } else {
+                        int seconds = 15;
+                        long timeToNext = System.currentTimeMillis() + 1000L * seconds; // 15 секунд
+                        m.setData("SUCCESS:" + x + ":" + y + ":" + color + ":" + seconds);
+                        nextPaintDates.put(name, timeToNext);
+                        db.updateOrCreateUserData(name, 1, timeToNext); // 1 закрашивание
+                        db.logPixelPaint(x, y, color, name, System.currentTimeMillis());
+                        db.updateCanvasState(x, y, color, System.currentTimeMillis());
+                        System.out.println("Закрашен пиксель (" + x + ";" + y + "): " + color);
+                    }
                 } else {
-                    int seconds = 15;
-                    long timeToNext = System.currentTimeMillis() + 1000L * seconds; // 15 секунд
-                    m.setData("SUCCESS:" + x + ":" + y + ":" + color + ":" + seconds);
-                    nextPaintDates.put(name, timeToNext);
-                    db.updateOrCreateUserData(name, 1, timeToNext); // 1 закрашивание
-                    db.logPixelPaint(x, y, color, name, System.currentTimeMillis());
-                    db.updateCanvasState(x, y, color, System.currentTimeMillis());
-                    System.out.println("Закрашен пиксель (" + x + ";" + y + "): " + color);
+                    m.setData("NO_AUTH");
                 }
 
-                //msg.setData("NO_AUTH");
-
-                server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
+                if (gatewayClientInfo != null)
+                    server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
                 if (m.getData().contains("SUCCESS:")) {
                     m.setAction("updatePixel");
                     m.setData(x + "@" + y + "@" + color + "@" + name);
@@ -74,12 +82,20 @@ public class AppListener {
             } else if (action.equals("getStats")) {
                 m.setAction("statsAnswer");
                 m.setData("Закрашено пикселей: " + db.getPlayerPainted(data));
-                server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
+                if (gatewayClientInfo != null)
+                    server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
             } else if (action.equals("tryAuth")) {
                 m.setAction("authAnswer");
-                m.setData("SUCCESS:" + data);
-                db.updateOrCreateUserData(data, 0, 0L);
-                server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
+                if (data.length() < 3 || data.length() > 10) {
+                    m.setData("Ник не может быть короче 3-х символов и длиннее 10-ти");
+                } else if (data.contains(" ")) {
+                    m.setData("Ник не должен содержать пробел");
+                } else {
+                    m.setData("SUCCESS:" + data);
+                    db.updateOrCreateUserData(data, 0, 0L);
+                }
+                if (gatewayClientInfo != null)
+                    server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
             }
         } catch (Exception e) {
             e.printStackTrace();

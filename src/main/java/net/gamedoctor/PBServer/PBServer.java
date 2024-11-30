@@ -6,11 +6,12 @@ import lombok.Getter;
 public class PBServer {
     private final Config cfg;
     private final MySQLDBManager db;
+    private final AppListener appListener;
 
     public PBServer() {
         this.cfg = new Config();
         this.db = new MySQLDBManager();
         this.db.connect(this);
-        new AppListener(this, cfg.getServer_port());
+        appListener = new AppListener(this, cfg.getServer_port());
     }
 }
