@@ -41,12 +41,13 @@ public class AppListener {
             } else if (action.equals("paintPixel")) {
                 String[] dd = data.split("@!@");
                 String name = dd[0];
-                int x = Integer.parseInt(dd[1]);
-                int y = Integer.parseInt(dd[2]);
-                int color = Integer.parseInt(dd[3]);
+                String hashedPassword = dd[1];
+                int x = Integer.parseInt(dd[2]);
+                int y = Integer.parseInt(dd[3]);
+                int color = Integer.parseInt(dd[4]);
                 m.setAction("paintPixelAnswer");
 
-                if (db.isUserExists(name)) {
+                if (db.isUserExists(name, hashedPassword)) {
                     if (nextPaintDates.getOrDefault(name, 0L) > System.currentTimeMillis()) {
                         m.setData(String.valueOf((nextPaintDates.get(name) - System.currentTimeMillis()) / 1000L));
                     } else {
@@ -54,7 +55,7 @@ public class AppListener {
                         long timeToNext = System.currentTimeMillis() + 1000L * seconds; // 15 секунд
                         m.setData("SUCCESS:" + x + ":" + y + ":" + color + ":" + seconds);
                         nextPaintDates.put(name, timeToNext);
-                        db.updateOrCreateUserData(name, 1, timeToNext); // 1 закрашивание
+                        db.updateOrCreateUserData(name, hashedPassword, 1, timeToNext); // 1 закрашивание
                         db.logPixelPaint(x, y, color, name, System.currentTimeMillis());
                         db.updateCanvasState(x, y, color, System.currentTimeMillis());
                         System.out.println("Закрашен пиксель (" + x + ";" + y + "): " + color);
@@ -73,26 +74,39 @@ public class AppListener {
             } else if (action.equals("sendChatMessage")) {
                 String[] dd = data.split("@!@");
                 String name = dd[0];
-                String message = data.replace(name + "@!@", "");
-                m.setAction("chatMessage");
-                m.setData(name + ": " + message);
-                System.out.println("Сообщение в чате: " + m.getData());
-                server.sendToAll("fromCore", m.toMap());
-                db.logChatMessage(name, message);
+                String hashedPassword = dd[1];
+                if (db.isUserExists(name, hashedPassword)) {
+                    String message = data.replace(name + "@!@" + hashedPassword + "@!@", "");
+                    m.setAction("chatMessage");
+                    m.setData(name + ": " + message);
+                    System.out.println("Сообщение в чате: " + m.getData());
+                    server.sendToAll("fromCore", m.toMap());
+                    db.logChatMessage(name, message);
+                }
             } else if (action.equals("getStats")) {
-                m.setAction("statsAnswer");
-                m.setData("Закрашено пикселей: " + db.getPlayerPainted(data));
-                if (gatewayClientInfo != null)
-                    server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
+                String[] dd = data.split("@!@");
+                String name = dd[0];
+                String hashedPassword = dd[1];
+                if (db.isUserExists(name, hashedPassword)) {
+                    m.setAction("statsAnswer");
+                    m.setData("Закрашено пикселей: " + db.getPlayerPainted(data));
+                    if (gatewayClientInfo != null)
+                        server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
+                }
             } else if (action.equals("tryAuth")) {
+                String[] dd = data.split("@!@");
+                String name = dd[0];
+                String hashedPassword = dd[1];
                 m.setAction("authAnswer");
-                if (data.length() < 3 || data.length() > 10) {
+                if (name.length() < 3 || name.length() > 10) {
                     m.setData("Ник не может быть короче 3-х символов и длиннее 10-ти");
-                } else if (data.contains(" ")) {
+                } else if (name.contains(" ")) {
                     m.setData("Ник не должен содержать пробел");
+                } else if (db.isNameExists(name) && !db.isUserExists(name, hashedPassword)) {
+                    m.setData("Неверно указан пароль");
                 } else {
-                    m.setData("SUCCESS:" + data);
-                    db.updateOrCreateUserData(data, 0, 0L);
+                    m.setData("SUCCESS:" + name + "@!@" + hashedPassword);
+                    db.updateOrCreateUserData(name, hashedPassword, 0, 0L);
                 }
                 if (gatewayClientInfo != null)
                     server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());

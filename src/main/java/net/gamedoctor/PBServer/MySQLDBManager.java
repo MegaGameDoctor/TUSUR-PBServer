@@ -26,6 +26,7 @@ public class MySQLDBManager {
             connection = DriverManager.getConnection("jdbc:mysql://" + main.getCfg().getDatabase_host() + "/" + main.getCfg().getDatabase_database() + main.getCfg().getDatabase_arguments(), main.getCfg().getDatabase_user(), main.getCfg().getDatabase_password());
             connection.prepareStatement("CREATE TABLE IF NOT EXISTS " + playersTableName + " (\n" +
                     "  `player` VARCHAR(255) NOT NULL,\n" +
+                    "  `password` TEXT NOT NULL,\n" +
                     "  `painted` INT NULL,\n" +
                     "  `nextPixel` BIGINT NULL,\n" +
                     "  PRIMARY KEY (`player`),\n" +
@@ -224,7 +225,20 @@ public class MySQLDBManager {
         }
     }
 
-    public boolean isUserExists(String player) {
+    public boolean isUserExists(String player, String hashedPassword) {
+        try {
+            PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM " + playersTableName + " WHERE player = ? AND password = ?");
+            preparedStatement.setString(1, player);
+            preparedStatement.setString(2, hashedPassword);
+            ResultSet set = preparedStatement.executeQuery();
+            return set.next();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public boolean isNameExists(String player) {
         try {
             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM " + playersTableName + " WHERE player = ?");
             preparedStatement.setString(1, player);
@@ -236,10 +250,11 @@ public class MySQLDBManager {
         return false;
     }
 
-    public void updateOrCreateUserData(String name, int toAddPainted, long nextPixelTime) {
+    public void updateOrCreateUserData(String name, String hashedPassword, int toAddPainted, long nextPixelTime) {
         try {
-            PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM " + playersTableName + " WHERE player = ?");
+            PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM " + playersTableName + " WHERE player = ? AND password = ?");
             preparedStatement.setString(1, name);
+            preparedStatement.setString(2, hashedPassword);
             ResultSet set = preparedStatement.executeQuery();
             if (set.next()) {
                 PreparedStatement update = connection.prepareStatement("UPDATE " + playersTableName + " SET painted = ?, nextPixel = ? WHERE player = ?");
@@ -248,10 +263,11 @@ public class MySQLDBManager {
                 update.setString(3, name);
                 update.executeUpdate();
             } else {
-                PreparedStatement update = connection.prepareStatement("INSERT INTO " + playersTableName + " (`player`, `painted`, `nextPixel`) VALUES (?, ?, ?)");
+                PreparedStatement update = connection.prepareStatement("INSERT INTO " + playersTableName + " (`player`, `password`, `painted`, `nextPixel`) VALUES (?, ?, ?, ?)");
                 update.setString(1, name);
-                update.setInt(2, toAddPainted);
-                update.setLong(3, nextPixelTime);
+                update.setString(2, hashedPassword);
+                update.setInt(3, toAddPainted);
+                update.setLong(4, nextPixelTime);
                 update.executeUpdate();
                 System.out.println("Создан новый игрок: " + name);
             }
