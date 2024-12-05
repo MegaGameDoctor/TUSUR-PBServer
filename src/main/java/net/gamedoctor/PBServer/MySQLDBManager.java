@@ -38,13 +38,15 @@ public class MySQLDBManager {
                     "  `time` BIGINT NOT NULL,\n" +
                     "  `newColor` VARCHAR(45) NULL,\n" +
                     "  `previousColor` VARCHAR(45) NULL,\n" +
-                    "  `player` VARCHAR(255) NULL)").execute();
+                    "  `player` VARCHAR(255) NULL,\n" +
+                    "  `paintedByPlayer` BOOLEAN NULL)").execute();
 
             connection.prepareStatement("CREATE TABLE IF NOT EXISTS " + canvasStateTableName + " (\n" +
                     "  `x` INT NULL,\n" +
                     "  `y` INT NULL,\n" +
                     "  `color` INT NULL,\n" +
-                    "  `changeDate` BIGINT NULL);").execute();
+                    "  `changeDate` BIGINT NULL,\n" +
+                    "  `changedByPlayer` BOOLEAN NULL);").execute();
 
             connection.prepareStatement("CREATE TABLE IF NOT EXISTS " + chatLogsTableName + " (\n" +
                     "  `id` INT NOT NULL AUTO_INCREMENT,\n" +
@@ -69,7 +71,7 @@ public class MySQLDBManager {
                     System.out.println("Данные о полотне не обнаружены. Загружаю...");
                     for (int y = 0; y < main.getCfg().getCanvas_size(); y++) {
                         for (int x = 0; x < main.getCfg().getCanvas_size(); x++) {
-                            insertCanvasState(x, y);
+                            insertCanvasState(x, y, false);
                         }
                     }
                     System.out.println("Стартовые данные полотна успешно заполнены в БД");
@@ -150,13 +152,14 @@ public class MySQLDBManager {
         }
     }
 
-    private void insertCanvasState(int x, int y) {
+    private void insertCanvasState(int x, int y, boolean paintedByPlayer) {
         try {
-            PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO " + canvasStateTableName + " (`x`, `y`, `color`, `changeDate`) VALUES (?, ?, ?, ?);");
+            PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO " + canvasStateTableName + " (`x`, `y`, `color`, `changeDate`, `paintedByPlayer`) VALUES (?, ?, ?, ?, ?);");
             preparedStatement.setInt(1, x);
             preparedStatement.setInt(2, y);
             preparedStatement.setInt(3, -1);
             preparedStatement.setLong(4, 0);
+            preparedStatement.setBoolean(5, paintedByPlayer);
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -177,7 +180,7 @@ public class MySQLDBManager {
             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM " + canvasStateTableName);
             ResultSet set = preparedStatement.executeQuery();
             while (set.next()) {
-                result.append(set.getString("x")).append("@").append(set.getString("y")).append("@").append(set.getString("color")).append("!!!");
+                result.append(set.getString("x")).append("@").append(set.getString("y")).append("@").append(set.getString("color")).append("@").append(set.getBoolean("changedByPlayer")).append("!!!");
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -186,7 +189,7 @@ public class MySQLDBManager {
         return result.toString();
     }
 
-    public void logPixelPaint(int x, int y, int newColor, String player, long time) {
+    public void logPixelPaint(int x, int y, int newColor, String player, long time, boolean paintedByPlayer) {
         try {
             int previousColor = -1;
 
@@ -199,13 +202,14 @@ public class MySQLDBManager {
             }
 
             preparedStatement = connection.prepareStatement("INSERT INTO " + pixelLogsTableName + " " +
-                    "(`x`, `y`, `time`, `newColor`, `previousColor`, `player`) VALUES (?, ?, ?, ?, ?, ?)");
+                    "(`x`, `y`, `time`, `newColor`, `previousColor`, `player`, `paintedByPlayer`) VALUES (?, ?, ?, ?, ?, ?, ?)");
             preparedStatement.setInt(1, x);
             preparedStatement.setInt(2, y);
             preparedStatement.setLong(3, time);
             preparedStatement.setInt(4, newColor);
             preparedStatement.setInt(5, previousColor);
             preparedStatement.setString(6, player);
+            preparedStatement.setBoolean(7, paintedByPlayer);
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -295,13 +299,14 @@ public class MySQLDBManager {
         return answer;
     }
 
-    public void updateCanvasState(int x, int y, int color, long time) {
+    public void updateCanvasState(int x, int y, int color, long time, boolean paintedByPlayer) {
         try {
-            PreparedStatement preparedStatement = connection.prepareStatement("UPDATE " + canvasStateTableName + " SET color=?, changeDate=? WHERE x=? AND y=?");
+            PreparedStatement preparedStatement = connection.prepareStatement("UPDATE " + canvasStateTableName + " SET color=?, changeDate=?, changedByPlayer=? WHERE x=? AND y=?");
             preparedStatement.setInt(1, color);
             preparedStatement.setLong(2, time);
-            preparedStatement.setInt(3, x);
-            preparedStatement.setInt(4, y);
+            preparedStatement.setBoolean(3, paintedByPlayer);
+            preparedStatement.setInt(4, x);
+            preparedStatement.setInt(5, y);
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();

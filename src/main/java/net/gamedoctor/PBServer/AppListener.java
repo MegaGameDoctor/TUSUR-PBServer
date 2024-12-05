@@ -8,7 +8,6 @@ import com.mayakplay.aclf.cloud.stereotype.Nugget;
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 public class AppListener {
     private final GatewayServer server;
@@ -20,10 +19,33 @@ public class AppListener {
         server = new NettyGatewayServer(port, new HashMap<>());
         server.addReceiveCallback(this::onMessage);
         this.main = main;
+        runBotPainter();
+    }
+
+    private void runBotPainter() {
+        new Thread() {
+            public void run() {
+                while (true) {
+                    paintPixel(Utils.getRandomNumber(0, 9), Utils.getRandomNumber(0, 9), Utils.getRandomColor());
+                    try {
+                        Thread.sleep(1000L * 60 * 60); // 60 мин.
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        }.start();
+    }
+
+    private void paintPixel(int x, int y, int color) {
+        MySQLDBManager db = main.getDb();
+        db.logPixelPaint(x, y, color, "bot", System.currentTimeMillis(), false);
+        db.updateCanvasState(x, y, color, System.currentTimeMillis(), false);
+        server.sendToAll("fromCore", new CoreMessage("updatePixel", x + "@" + y + "@" + color + "@bot@false").toMap());
+        System.out.println("Бот закрасил пиксель (" + x + ";" + y + "): " + color);
     }
 
     private void onMessage(GatewayClientInfo gatewayClientInfo, Nugget nugget) {
-        //System.out.println("Server sent: " + nugget);
         workWithPacket(nugget.getParameters(), gatewayClientInfo);
     }
 
@@ -56,8 +78,8 @@ public class AppListener {
                         m.setData("SUCCESS:" + x + ":" + y + ":" + color + ":" + seconds);
                         nextPaintDates.put(name, timeToNext);
                         db.updateOrCreateUserData(name, hashedPassword, 1, timeToNext); // 1 закрашивание
-                        db.logPixelPaint(x, y, color, name, System.currentTimeMillis());
-                        db.updateCanvasState(x, y, color, System.currentTimeMillis());
+                        db.logPixelPaint(x, y, color, name, System.currentTimeMillis(), true);
+                        db.updateCanvasState(x, y, color, System.currentTimeMillis(), true);
                         System.out.println("Закрашен пиксель (" + x + ";" + y + "): " + color);
                     }
                 } else {
@@ -68,7 +90,7 @@ public class AppListener {
                     server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
                 if (m.getData().contains("SUCCESS:")) {
                     m.setAction("updatePixel");
-                    m.setData(x + "@" + y + "@" + color + "@" + name);
+                    m.setData(x + "@" + y + "@" + color + "@" + name + "@true");
                     server.sendToAll("fromCore", m.toMap());
                 }
             } else if (action.equals("sendChatMessage")) {
@@ -89,7 +111,7 @@ public class AppListener {
                 String hashedPassword = dd[1];
                 if (db.isUserExists(name, hashedPassword)) {
                     m.setAction("statsAnswer");
-                    m.setData("Закрашено пикселей: " + db.getPlayerPainted(data));
+                    m.setData("Закрашено пикселей: " + db.getPlayerPainted(name));
                     if (gatewayClientInfo != null)
                         server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
                 }
@@ -114,10 +136,5 @@ public class AppListener {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    private String secondsToFormatedString(int seconds) {
-        long millis = (long) seconds * 1000L;
-        return String.format("%02d:%02d", TimeUnit.MILLISECONDS.toMinutes(millis) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis)), TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(millis)));
     }
 }
