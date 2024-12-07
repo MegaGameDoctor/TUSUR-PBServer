@@ -26,12 +26,12 @@ public class AppListener {
         new Thread() {
             public void run() {
                 while (true) {
-                    paintPixel(Utils.getRandomNumber(0, 9), Utils.getRandomNumber(0, 9), Utils.getRandomColor());
                     try {
                         Thread.sleep(1000L * 60 * 60); // 60 мин.
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }
+                    paintPixel(Utils.getRandomNumber(0, 9), Utils.getRandomNumber(0, 9), Utils.getRandomColor());
                 }
             }
         }.start();
