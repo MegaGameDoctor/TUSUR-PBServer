@@ -1,9 +1,13 @@
-package net.gamedoctor.PBServer;
+package net.gamedoctor.PBServer.core;
 
 import com.mayakplay.aclf.cloud.infrastructure.NettyGatewayServer;
 import com.mayakplay.aclf.cloud.stereotype.GatewayClientInfo;
 import com.mayakplay.aclf.cloud.stereotype.GatewayServer;
 import com.mayakplay.aclf.cloud.stereotype.Nugget;
+import net.gamedoctor.PBServer.PBServer;
+import net.gamedoctor.PBServer.Utils;
+import net.gamedoctor.PBServer.db.MySQLDBManager;
+import net.gamedoctor.PBServer.db.PixelData;
 
 import javax.annotation.Nullable;
 import java.util.HashMap;
@@ -23,6 +27,7 @@ public class AppListener {
     }
 
     private void runBotPainter() {
+        Utils utils = new Utils();
         new Thread() {
             public void run() {
                 while (true) {
@@ -31,7 +36,7 @@ public class AppListener {
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }
-                    paintPixel(Utils.getRandomNumber(0, 9), Utils.getRandomNumber(0, 9), Utils.getRandomColor());
+                    paintPixel(utils.getRandomNumber(0, 9), utils.getRandomNumber(0, 9), utils.getRandomColor());
                 }
             }
         }.start();
@@ -51,6 +56,7 @@ public class AppListener {
 
     public void workWithPacket(Map<String, String> map, @Nullable GatewayClientInfo gatewayClientInfo) {
         MySQLDBManager db = main.getDb();
+        Utils utils = main.getUtils();
         try {
             String action = map.get("action");
             String data = map.get("data");
@@ -132,6 +138,27 @@ public class AppListener {
                 }
                 if (gatewayClientInfo != null)
                     server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
+            } else if (action.equals("getPixelInfo")) {
+                String[] dd = data.split("@!@");
+                String name = dd[0];
+                String hashedPassword = dd[1];
+                int x = Integer.parseInt(dd[2]);
+                int y = Integer.parseInt(dd[3]);
+
+                if (db.isUserExists(name, hashedPassword)) {
+                    m.setAction("pixelInfoAnswer");
+                    PixelData pixelData = db.getPixelData(x, y);
+
+                    String answer = "Текущий цвет: " + utils.getColorToName().get(pixelData.getNowColor()) +
+                            "\nПерекрасил: " + pixelData.getLastPaintedBy() +
+                            "\nПредыдущий цвет: " + utils.getColorToName().get(pixelData.getPreviousColor()) +
+                            "\nПоследний раз перекрашен: %lastRepaintedDate% назад" +
+                            "\nВсего перекрашиваний: " + pixelData.getRepainted();
+                    m.setData(x + "@" + y + "@" + pixelData.getLastPaintedDate() + "@" + answer);
+
+                    if (gatewayClientInfo != null)
+                        server.sendToClient(gatewayClientInfo, "fromCore", m.toMap());
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();

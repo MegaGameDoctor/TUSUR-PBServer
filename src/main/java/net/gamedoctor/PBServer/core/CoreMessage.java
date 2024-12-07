@@ -1,4 +1,4 @@
-package net.gamedoctor.PBServer;
+package net.gamedoctor.PBServer.core;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

@@ -1,4 +1,4 @@
-package net.gamedoctor.PBServer;
+package net.gamedoctor.PBServer.db;
 
 import lombok.Getter;
 

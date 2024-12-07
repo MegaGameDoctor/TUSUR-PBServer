@@ -1,4 +1,6 @@
-package net.gamedoctor.PBServer;
+package net.gamedoctor.PBServer.db;
+
+import net.gamedoctor.PBServer.PBServer;
 
 import java.sql.*;
 import java.util.HashMap;
@@ -71,7 +73,7 @@ public class MySQLDBManager {
                     System.out.println("Данные о полотне не обнаружены. Загружаю...");
                     for (int y = 0; y < main.getCfg().getCanvas_size(); y++) {
                         for (int x = 0; x < main.getCfg().getCanvas_size(); x++) {
-                            insertCanvasState(x, y, false);
+                            insertCanvasState(x, y);
                         }
                     }
                     System.out.println("Стартовые данные полотна успешно заполнены в БД");
@@ -152,14 +154,14 @@ public class MySQLDBManager {
         }
     }
 
-    private void insertCanvasState(int x, int y, boolean paintedByPlayer) {
+    private void insertCanvasState(int x, int y) {
         try {
             PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO " + canvasStateTableName + " (`x`, `y`, `color`, `changeDate`, `paintedByPlayer`) VALUES (?, ?, ?, ?, ?);");
             preparedStatement.setInt(1, x);
             preparedStatement.setInt(2, y);
             preparedStatement.setInt(3, -1);
-            preparedStatement.setLong(4, 0);
-            preparedStatement.setBoolean(5, paintedByPlayer);
+            preparedStatement.setLong(4, System.currentTimeMillis());
+            preparedStatement.setBoolean(5, false);
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -311,5 +313,47 @@ public class MySQLDBManager {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+
+    public PixelData getPixelData(int x, int y) {
+        try {
+            PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM " + pixelLogsTableName + " WHERE x = ? AND y = ? ORDER BY time");
+            preparedStatement.setInt(1, x);
+            preparedStatement.setInt(2, y);
+
+            ResultSet set = preparedStatement.executeQuery();
+            int repaintedCount = 0;
+            long lastRepaintedDate = 0;
+            String lastPaintedBy = "-";
+            int nowColor = -1;
+            int previousColor = -1;
+            boolean lastPaintedByPlayer = false;
+
+            while (set.next()) {
+                repaintedCount++;
+                lastPaintedBy = set.getString("player");
+                nowColor = set.getInt("newColor");
+                previousColor = set.getInt("previousColor");
+                lastPaintedByPlayer = set.getBoolean("paintedByPlayer");
+                lastRepaintedDate = set.getLong("time");
+            }
+
+            if (lastRepaintedDate == 0) {
+                preparedStatement = connection.prepareStatement("SELECT * FROM " + canvasStateTableName + " WHERE x = ? AND y = ?");
+                preparedStatement.setInt(1, x);
+                preparedStatement.setInt(2, y);
+
+                set = preparedStatement.executeQuery();
+                if (set.next()) {
+                    lastRepaintedDate = set.getLong("changeDate");
+                }
+            }
+
+            return new PixelData(x, y, repaintedCount, lastRepaintedDate, lastPaintedBy, nowColor, previousColor, lastPaintedByPlayer);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 }
