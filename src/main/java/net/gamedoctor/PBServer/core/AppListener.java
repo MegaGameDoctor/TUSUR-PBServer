@@ -124,12 +124,17 @@ public class AppListener {
             } else if (action.equals("tryAuth")) {
                 String[] dd = data.split("@!@");
                 String name = dd[0];
-                String hashedPassword = dd[1];
+                String password = dd[1];
+                String hashedPassword = utils.toMD5Hash(password);
                 m.setAction("authAnswer");
                 if (name.length() < 3 || name.length() > 10) {
                     m.setData("Ник не может быть короче 3-х символов и длиннее 10-ти");
                 } else if (name.contains(" ")) {
                     m.setData("Ник не должен содержать пробел");
+                } else if (password.length() < 3 || password.length() > 30) {
+                    m.setData("Пароль не может быть короче 3-х символов и длиннее 10-ти");
+                } else if (password.contains(" ")) {
+                    m.setData("Пароль не должен содержать пробел");
                 } else if (db.isNameExists(name) && !db.isUserExists(name, hashedPassword)) {
                     m.setData("Неверно указан пароль");
                 } else {

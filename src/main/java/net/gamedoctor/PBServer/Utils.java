@@ -2,6 +2,9 @@ package net.gamedoctor.PBServer;
 
 import lombok.Getter;
 
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -36,5 +39,23 @@ public class Utils {
         List<Integer> allColors = new ArrayList<>(colorToName.keySet());
 
         return allColors.get(new Random().nextInt(allColors.size()));
+    }
+
+    public String toMD5Hash(String text) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+
+            byte[] messageDigest = md.digest(text.getBytes());
+
+            BigInteger no = new BigInteger(1, messageDigest);
+
+            String hashtext = no.toString(16);
+            while (hashtext.length() < 32) {
+                hashtext = "0" + hashtext;
+            }
+            return hashtext;
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
