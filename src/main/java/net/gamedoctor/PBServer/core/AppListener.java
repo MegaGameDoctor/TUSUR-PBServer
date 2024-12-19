@@ -32,7 +32,7 @@ public class AppListener {
             public void run() {
                 while (true) {
                     try {
-                        Thread.sleep(1000L * 60 * 60); // 60 мин.
+                        Thread.sleep(1000L * main.getCfg().getBotPaintInterval());
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }

@@ -13,6 +13,7 @@ public class Config {
     private String database_password;
     private int server_port;
     private int canvas_size;
+    private int botPaintInterval;
 
     public Config() {
         File file = new File("config.pb");
@@ -28,6 +29,10 @@ public class Config {
                 writer.write("database-password: root");
                 writer.newLine();
                 writer.write("server-port: 8292");
+                writer.newLine();
+                writer.write("canvas-size: 20");
+                writer.newLine();
+                writer.write("bot-paint-interval-sec: 3600"); // 1 Час
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -38,7 +43,8 @@ public class Config {
                 database_database = reader.readLine().split(" ")[1];
                 database_password = reader.readLine().split(" ")[1];
                 server_port = Integer.parseInt(reader.readLine().split(" ")[1]);
-                canvas_size = 10;
+                canvas_size = Integer.parseInt(reader.readLine().split(" ")[1]);
+                botPaintInterval = Integer.parseInt(reader.readLine().split(" ")[1]);
             } catch (IOException e) {
                 e.printStackTrace();
             }

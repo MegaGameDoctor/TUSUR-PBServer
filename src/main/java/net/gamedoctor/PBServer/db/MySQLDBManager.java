@@ -76,6 +76,7 @@ public class MySQLDBManager {
                             insertCanvasState(x, y);
                         }
                     }
+
                     System.out.println("Стартовые данные полотна успешно заполнены в БД");
                 }
             }
@@ -156,12 +157,12 @@ public class MySQLDBManager {
 
     private void insertCanvasState(int x, int y) {
         try {
-            PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO " + canvasStateTableName + " (`x`, `y`, `color`, `changeDate`, `paintedByPlayer`) VALUES (?, ?, ?, ?, ?);");
+            PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO " + canvasStateTableName + " (`x`, `y`, `color`, `changeDate`, `changedByPlayer`) VALUES (?, ?, ?, ?, ?);");
             preparedStatement.setInt(1, x);
             preparedStatement.setInt(2, y);
             preparedStatement.setInt(3, -1);
             preparedStatement.setLong(4, System.currentTimeMillis());
-            preparedStatement.setBoolean(5, false);
+            preparedStatement.setBoolean(5, true);
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
