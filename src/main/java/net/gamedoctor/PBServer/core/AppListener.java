@@ -76,7 +76,9 @@ public class AppListener {
                 m.setAction("paintPixelAnswer");
 
                 if (db.isUserExists(name, hashedPassword)) {
-                    if (nextPaintDates.getOrDefault(name, 0L) > System.currentTimeMillis()) {
+                    if (db.getPixelData(x, y).getNowColor() == color) {
+                        m.setData("Вы не можете закрасить пиксель тем же цветом");
+                    } else if (nextPaintDates.getOrDefault(name, 0L) > System.currentTimeMillis()) {
                         m.setData(String.valueOf((nextPaintDates.get(name) - System.currentTimeMillis()) / 1000L));
                     } else {
                         int seconds = 15;
