@@ -36,7 +36,7 @@ public class AppListener {
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }
-                    paintPixel(utils.getRandomNumber(0, 9), utils.getRandomNumber(0, 9), utils.getRandomColor());
+                    paintPixel(utils.getRandomNumber(0, main.getCfg().getCanvas_size() - 1), utils.getRandomNumber(0, main.getCfg().getCanvas_size() - 1), utils.getRandomColor());
                 }
             }
         }.start();
